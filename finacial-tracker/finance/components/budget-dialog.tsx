@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Budget } from "@/lib/types"
-import { storageService } from "@/lib/storage"
+import { insertBudget, updateBudget } from "@/lib/supabase-service"
+import { toast } from "sonner"
 
 interface BudgetDialogProps {
   budget?: Budget
@@ -39,6 +40,7 @@ const categories = [
 
 export function BudgetDialog({ budget, onSave, trigger }: BudgetDialogProps) {
   const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState<Partial<Budget>>(
     budget || {
       category: "",
@@ -48,35 +50,49 @@ export function BudgetDialog({ budget, onSave, trigger }: BudgetDialogProps) {
     },
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.category || !formData.limit) {
+      toast.error("Please fill in all required fields")
       return
     }
 
-    const budgetData: Budget = {
-      id: budget?.id || crypto.randomUUID(),
-      category: formData.category,
-      limit: Number(formData.limit),
-      spent: budget?.spent || 0,
-      period: formData.period as "monthly" | "weekly" | "yearly",
-    }
+    setIsLoading(true)
 
-    if (budget) {
-      storageService.updateBudget(budget.id, budgetData)
-    } else {
-      storageService.addBudget(budgetData)
-    }
+    try {
+      if (budget) {
+        // Update existing budget
+        await updateBudget(budget.id, {
+          category: formData.category!,
+          limit: Number(formData.limit),
+          period: formData.period!,
+        })
+        toast.success("Budget updated successfully")
+      } else {
+        // Insert new budget
+        await insertBudget({
+          category: formData.category!,
+          limit: Number(formData.limit),
+          period: formData.period!,
+        })
+        toast.success("Budget created successfully")
+      }
 
-    onSave()
-    setOpen(false)
-    setFormData({
-      category: "",
-      limit: 0,
-      spent: 0,
-      period: "monthly",
-    })
+      onSave()
+      setOpen(false)
+      setFormData({
+        category: "",
+        limit: 0,
+        spent: 0,
+        period: "monthly",
+      })
+    } catch (error: any) {
+      console.error("Error saving budget:", error)
+      toast.error(error.message || "Failed to save budget")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -148,10 +164,12 @@ export function BudgetDialog({ budget, onSave, trigger }: BudgetDialogProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit">{budget ? "Update" : "Create"} Budget</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Saving..." : budget ? "Update" : "Create"} Budget
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

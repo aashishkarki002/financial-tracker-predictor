@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Transaction } from "@/lib/types"
-import { storageService } from "@/lib/storage"
+import { insertTransaction, updateTransaction } from "@/lib/supabase-service"
+import { toast } from "sonner"
 
 interface TransactionDialogProps {
   transaction?: Transaction
@@ -41,47 +42,93 @@ const categories = [
 
 export function TransactionDialog({ transaction, onSave, trigger }: TransactionDialogProps) {
   const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState<Partial<Transaction>>(
-    transaction || {
-      type: "expense",
-      category: "",
-      description: "",
-      amount: 0,
-      date: new Date().toISOString().split("T")[0],
-    },
+    transaction
+      ? {
+          ...transaction,
+          amount: Math.abs(transaction.amount), // Display absolute value in form
+        }
+      : {
+          type: "expense",
+          category: "",
+          description: "",
+          amount: 0,
+          date: new Date().toISOString().split("T")[0],
+        },
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.description || !formData.amount || !formData.category || !formData.date) {
+    // Validate required fields
+    if (!formData.description?.trim() || !formData.amount || !formData.category || !formData.date) {
+      toast.error("Please fill in all required fields")
       return
     }
 
-    const transactionData: Transaction = {
-      id: transaction?.id || crypto.randomUUID(),
-      description: formData.description,
-      amount: formData.type === "expense" ? -Math.abs(Number(formData.amount)) : Math.abs(Number(formData.amount)),
-      category: formData.category,
-      type: formData.type as "income" | "expense",
-      date: formData.date,
+    // Validate amount is positive
+    if (Number(formData.amount) <= 0) {
+      toast.error("Amount must be greater than 0")
+      return
     }
 
-    if (transaction) {
-      storageService.updateTransaction(transaction.id, transactionData)
-    } else {
-      storageService.addTransaction(transactionData)
-    }
+    setIsLoading(true)
 
-    onSave()
-    setOpen(false)
-    setFormData({
-      type: "expense",
-      category: "",
-      description: "",
-      amount: 0,
-      date: new Date().toISOString().split("T")[0],
-    })
+    try {
+      // Database stores positive amounts, type field indicates income/expense
+      const amount = Math.abs(Number(formData.amount))
+      
+      const transactionData = {
+        description: formData.description.trim(),
+        amount: amount,
+        category: formData.category,
+        type: formData.type as "income" | "expense",
+        date: formData.date,
+      }
+
+      if (transaction) {
+        // Update existing transaction
+        await updateTransaction(transaction.id, transactionData)
+        toast.success("Transaction updated successfully")
+      } else {
+        // Insert new transaction
+        const result = await insertTransaction(transactionData)
+        if (!result) {
+          throw new Error("Failed to insert transaction - no data returned")
+        }
+        toast.success("Transaction added successfully")
+      }
+
+      // Reset form and close dialog
+      setFormData({
+        type: "expense",
+        category: "",
+        description: "",
+        amount: 0,
+        date: new Date().toISOString().split("T")[0],
+      })
+      setOpen(false)
+      
+      // Call onSave callback to refresh the list
+      onSave()
+    } catch (error: any) {
+      console.error("Error saving transaction:", error)
+      
+      // Better error message extraction for Supabase errors
+      let errorMessage = "Failed to save transaction"
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message
+      } else if (typeof error === "string") {
+        errorMessage = error
+      }
+      
+      toast.error(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -170,10 +217,12 @@ export function TransactionDialog({ transaction, onSave, trigger }: TransactionD
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit">{transaction ? "Update" : "Add"} Transaction</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Saving..." : transaction ? "Update" : "Add"} Transaction
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

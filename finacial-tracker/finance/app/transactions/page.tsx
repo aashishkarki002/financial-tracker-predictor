@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TransactionDialog } from "@/components/transaction-dialog"
-import { storageService } from "@/lib/storage"
+import { getTransactions, deleteTransaction } from "@/lib/supabase-service"
 import type { Transaction } from "@/lib/types"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -19,11 +20,17 @@ export default function TransactionsPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [loading, setLoading] = useState(true)
 
-  const loadTransactions = () => {
-    const loaded = storageService.getTransactions()
-    setTransactions(loaded)
-    setFilteredTransactions(loaded)
-    setLoading(false)
+  const loadTransactions = async () => {
+    try {
+      const loaded = await getTransactions()
+      setTransactions(loaded)
+      setFilteredTransactions(loaded)
+    } catch (error) {
+      console.error("Error loading transactions:", error)
+      toast.error("Failed to load transactions")
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -56,10 +63,18 @@ export default function TransactionsPage() {
     setFilteredTransactions(filtered)
   }, [transactions, filterType, filterCategory, searchQuery])
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this transaction?")) {
-      storageService.deleteTransaction(id)
-      loadTransactions()
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this transaction?")) {
+      return
+    }
+
+    try {
+      await deleteTransaction(id)
+      toast.success("Transaction deleted successfully")
+      await loadTransactions()
+    } catch (error: any) {
+      console.error("Error deleting transaction:", error)
+      toast.error(error.message || "Failed to delete transaction")
     }
   }
 

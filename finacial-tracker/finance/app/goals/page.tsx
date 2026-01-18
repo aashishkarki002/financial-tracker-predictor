@@ -5,28 +5,43 @@ import { Trophy, Target } from "lucide-react"
 import { GoalCard } from "@/components/goal-card"
 import { GoalDialog } from "@/components/goal-dialog"
 import { Card } from "@/components/ui/card"
-import { storageService } from "@/lib/storage"
+import { getGoals, deleteGoal } from "@/lib/supabase-service"
 import type { Goal } from "@/lib/types"
 import { formatCurrency } from "@/lib/utils"
+import { toast } from "sonner"
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadGoals = () => {
-    const loaded = storageService.getGoals()
-    setGoals(loaded)
-    setLoading(false)
+  const loadGoals = async () => {
+    try {
+      const loaded = await getGoals()
+      setGoals(loaded)
+    } catch (error) {
+      console.error("Error loading goals:", error)
+      toast.error("Failed to load goals")
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     loadGoals()
   }, [])
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this goal?")) {
-      storageService.deleteGoal(id)
-      loadGoals()
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this goal?")) {
+      return
+    }
+
+    try {
+      await deleteGoal(id)
+      toast.success("Goal deleted successfully")
+      await loadGoals()
+    } catch (error: any) {
+      console.error("Error deleting goal:", error)
+      toast.error(error.message || "Failed to delete goal")
     }
   }
 

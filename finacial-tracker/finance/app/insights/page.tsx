@@ -17,6 +17,7 @@ import {
   type Prediction,
 } from "@/lib/ai-insights";
 import { fetchCategoryPredictions } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -25,31 +26,60 @@ export default function InsightsPage() {
 
   useEffect(() => {
     async function loadInsights() {
-      const transactions = storageService.getTransactions();
-      const budgets = storageService.getBudgets();
-      const goals = storageService.getGoals();
+      try {
+        // Get current authenticated user
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      // Local insights
-      const localInsights = generateInsights(transactions, budgets, goals);
+        if (authError || !user) {
+          console.error("Error getting user:", authError);
+          // Still load local insights even if auth fails
+          const transactions = storageService.getTransactions();
+          const budgets = storageService.getBudgets();
+          const goals = storageService.getGoals();
+          const localInsights = generateInsights(transactions, budgets, goals);
+          setInsights(localInsights);
+          setPredictions(generatePredictions(transactions));
+          setLoading(false);
+          return;
+        }
 
-      // Fetch backend prediction
-      const backendPrediction = await fetchNextMonthPrediction(
-        "11111111-1111-1111-1111-111111111111"
-      ); // Test user ID
+        const transactions = storageService.getTransactions();
+        const budgets = storageService.getBudgets();
+        const goals = storageService.getGoals();
 
-      let allInsights = [...localInsights];
-      let finalPredictions: Prediction[] = [];
+        // Local insights
+        const localInsights = generateInsights(transactions, budgets, goals);
 
-      if (backendPrediction) {
-        // Transform backend prediction response to Prediction format
-        finalPredictions = transformNextMonthPrediction(backendPrediction);
-      } else {
-        finalPredictions = generatePredictions(transactions); // fallback
+        // Fetch backend prediction with dynamic user ID
+        const backendPrediction = await fetchNextMonthPrediction(user.id);
+
+        let allInsights = [...localInsights];
+        let finalPredictions: Prediction[] = [];
+
+        if (backendPrediction) {
+          // Transform backend prediction response to Prediction format
+          finalPredictions = transformNextMonthPrediction(backendPrediction);
+        } else {
+          finalPredictions = generatePredictions(transactions); // fallback
+        }
+
+        setInsights(allInsights);
+        setPredictions(finalPredictions);
+      } catch (error) {
+        console.error("Error loading insights:", error);
+        // Fallback to local insights on error
+        const transactions = storageService.getTransactions();
+        const budgets = storageService.getBudgets();
+        const goals = storageService.getGoals();
+        const localInsights = generateInsights(transactions, budgets, goals);
+        setInsights(localInsights);
+        setPredictions(generatePredictions(transactions));
+      } finally {
+        setLoading(false);
       }
-
-      setInsights(allInsights);
-      setPredictions(finalPredictions);
-      setLoading(false);
     }
 
     loadInsights();

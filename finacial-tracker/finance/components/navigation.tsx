@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, ArrowLeftRight, PieChart, Target, Brain } from "lucide-react"
+import { Home, ArrowLeftRight, PieChart, Target, Brain, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -11,10 +11,16 @@ const navItems = [
   { href: "/budgets", label: "Budgets", icon: PieChart },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/insights", label: "AI Insights", icon: Brain },
+  { href: "/profile", label: "Profile", icon: User },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
+
+  // Hide navigation on login and signup pages
+  if (pathname === "/login" || pathname === "/signup") {
+    return null
+  }
 
   return (
     <nav className="border-b border-border bg-card">

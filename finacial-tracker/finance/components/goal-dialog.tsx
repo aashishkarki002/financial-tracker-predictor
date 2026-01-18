@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Goal } from "@/lib/types"
-import { storageService } from "@/lib/storage"
+import { insertGoal, updateGoal } from "@/lib/supabase-service"
+import { toast } from "sonner"
 
 interface GoalDialogProps {
   goal?: Goal
@@ -49,37 +50,47 @@ export function GoalDialog({ goal, onSave, trigger }: GoalDialogProps) {
     },
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.name || !formData.targetAmount || !formData.deadline || !formData.category) {
       return
     }
 
-    const goalData: Goal = {
-      id: goal?.id || crypto.randomUUID(),
-      name: formData.name,
-      targetAmount: Number(formData.targetAmount),
-      currentAmount: Number(formData.currentAmount) || 0,
-      deadline: formData.deadline,
-      category: formData.category,
-    }
+    try {
+      if (goal) {
+        await updateGoal(goal.id, {
+          name: formData.name,
+          targetAmount: Number(formData.targetAmount),
+          currentAmount: Number(formData.currentAmount) || 0,
+          deadline: formData.deadline,
+          category: formData.category,
+        })
+        toast.success("Goal updated successfully")
+      } else {
+        await insertGoal({
+          name: formData.name,
+          targetAmount: Number(formData.targetAmount),
+          currentAmount: Number(formData.currentAmount) || 0,
+          deadline: formData.deadline,
+          category: formData.category,
+        })
+        toast.success("Goal created successfully")
+      }
 
-    if (goal) {
-      storageService.updateGoal(goal.id, goalData)
-    } else {
-      storageService.addGoal(goalData)
+      onSave()
+      setOpen(false)
+      setFormData({
+        name: "",
+        targetAmount: 0,
+        currentAmount: 0,
+        deadline: "",
+        category: "",
+      })
+    } catch (error: any) {
+      console.error("Error saving goal:", error)
+      toast.error(error.message || "Failed to save goal")
     }
-
-    onSave()
-    setOpen(false)
-    setFormData({
-      name: "",
-      targetAmount: 0,
-      currentAmount: 0,
-      deadline: "",
-      category: "",
-    })
   }
 
   return (
