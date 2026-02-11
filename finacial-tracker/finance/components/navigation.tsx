@@ -1,9 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, ArrowLeftRight, PieChart, Target, Brain, User } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Home, ArrowLeftRight, PieChart, Target, Brain, User, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -16,6 +19,18 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      toast.success("Logged out successfully")
+      router.push("/login")
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to log out")
+    }
+  }
 
   // Hide navigation on login and signup pages
   if (pathname === "/login" || pathname === "/signup") {
@@ -52,6 +67,10 @@ export function Navigation() {
               })}
             </div>
           </div>
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="hidden gap-2 md:flex">
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
         </div>
       </div>
       {/* Mobile Navigation */}
@@ -73,6 +92,14 @@ export function Navigation() {
             </Link>
           )
         })}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex flex-col items-center gap-1 rounded-md px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Logout</span>
+        </button>
       </div>
     </nav>
   )

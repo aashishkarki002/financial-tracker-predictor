@@ -154,13 +154,13 @@ export function generateInsightsFromBackend(
         id: `backend-over-${category}`,
         type: "warning",
         title: "Prediction Alert: Overspending",
-        description: `You've overspent in ${category} by $${Math.abs(
+        description: `You've overspent in ${category} by Rs ${Math.abs(
           comp.difference
         ).toFixed(
           2
-        )} compared to the prediction. Predicted: $${comp.predicted.toFixed(
+        )} compared to the prediction. Predicted: Rs ${comp.predicted.toFixed(
           2
-        )}, Actual: $${comp.actual.toFixed(2)}.`,
+        )}, Actual: Rs ${comp.actual.toFixed(2)}.`,
         category: category,
       });
     } else if (comp.status === "under_spent") {
@@ -168,7 +168,7 @@ export function generateInsightsFromBackend(
         id: `backend-under-${category}`,
         type: "success",
         title: "Great Savings!",
-        description: `You've spent $${Math.abs(comp.difference).toFixed(
+        description: `You've spent Rs ${Math.abs(comp.difference).toFixed(
           2
         )} less than predicted in ${category}. Keep up the good work!`,
         category: category,
@@ -228,7 +228,7 @@ export function generateInsights(
       title: "Top Spending Category",
       description: `You've spent the most on ${
         topCategory[0]
-      } with a total of $${topCategory[1].toFixed(
+      } with a total of Rs ${topCategory[1].toFixed(
         2
       )}. Consider setting a budget for this category.`,
       category: topCategory[0],
@@ -245,7 +245,7 @@ export function generateInsights(
         title: "Budget Exceeded",
         description: `Your ${budget.category} budget is ${percentage.toFixed(
           0
-        )}% over the limit. You've overspent by $${(
+        )}% over the limit. You've overspent by Rs ${(
           budget.spent - budget.limit
         ).toFixed(2)}.`,
         category: budget.category,
@@ -281,7 +281,7 @@ export function generateInsights(
         title: "Goal Achieved!",
         description: `Congratulations! You've reached your ${
           goal.name
-        } goal of $${goal.targetAmount.toFixed(2)}.`,
+        } goal of Rs ${goal.targetAmount.toFixed(2)}.`,
       });
     } else if (daysRemaining < 0) {
       insights.push({
